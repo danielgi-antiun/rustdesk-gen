@@ -106,8 +106,8 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # - { target: i686-pc-windows-msvc        , os: windows-2022                  }
-          # - { target: x86_64-pc-windows-gnu       , os: windows-2022                  }
+          # - { target: i686-pc-windows-msvc      , os: windows-2022          }
+          # - { target: x86_64-pc-windows-gnu      , os: windows-2022          }
           - {
               target: x86_64-pc-windows-msvc,
               os: windows-2022,
@@ -122,7 +122,7 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-      
+          
       - name: Set rdgen value
         if: ${{ fromJson(inputs.extras).rdgen == 'true' }}
         run: |
@@ -132,15 +132,7 @@ jobs:
         if: ${{ fromJson(inputs.extras).rdgen == 'false' }}
         run: |
           echo "STATUS_URL=${{ inputs.apiServer }}/api/updategh" >> $env:GITHUB_ENV
-
-      - name: Report Status
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "5% complete"}'
-
+          
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -172,7 +164,7 @@ jobs:
         run: |
           sed -i -e 's|2ded7f146437a761ffe6981e2f742038f85ca68d|08a471bb8ceccdd50483c81cdfa8b81b07b14b87|' ./flutter/pubspec.lock
           sed -i -e 's|2ded7f146437a761ffe6981e2f742038f85ca68d|08a471bb8ceccdd50483c81cdfa8b81b07b14b87|' ./flutter/pubspec.yaml
-      
+          
       - name: change appname to custom
         if: inputs.appname != 'rustdesk'
         continue-on-error: true
@@ -228,7 +220,7 @@ jobs:
           sed -i -e 's|Purslane Ltd|${{ fromJson(inputs.extras).compname }}|' ./flutter/windows/runner/Runner.rc
           sed -i -e 's|Purslane Ltd|${{ fromJson(inputs.extras).compname }}|' ./Cargo.toml
           sed -i -e 's|Purslane Ltd|${{ fromJson(inputs.extras).compname }}|' ./libs/portable/Cargo.toml
-             
+          
       - name: change url to custom
         if: fromJson(inputs.extras).urlLink != 'https://rustdesk.com'
         continue-on-error: true
@@ -275,14 +267,6 @@ jobs:
         with:
           version: ${{ env.LLVM_VERSION }}
 
-      - name: Report Status
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "10% complete"}'
-
       - name: Install flutter
         uses: subosito/flutter-action@v2.12.0 #https://github.com/subosito/flutter-action/issues/277
         with:
@@ -296,7 +280,7 @@ jobs:
           flutter precache --windows
           Invoke-WebRequest -Uri https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -OutFile windows-x64-release.zip
           Expand-Archive -Path windows-x64-release.zip -DestinationPath windows-x64-release
-          mv -Force windows-x64-release/*  C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
+          mv -Force windows-x64-release/* C:/hostedtoolcache/windows/flutter/stable-${{ env.FLUTTER_VERSION }}-x64/bin/cache/artifacts/engine/windows-x64-release/
 
       - name: Patch flutter
         shell: bash
@@ -312,28 +296,10 @@ jobs:
           targets: ${{ matrix.job.target }}
           components: "rustfmt"
 
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "15% complete"}'
-
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: ${{ matrix.job.os }}
-        
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "20% complete"}'
-
+          
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
@@ -374,7 +340,7 @@ jobs:
         if: ${{ inputs.iconlink != 'false' }}
         continue-on-error: true
         run: |
-          Invoke-WebRequest -Uri ${{ fromJson(inputs.iconlink).url }}/get_png?filename=${{ fromJson(inputs.iconlink).file }}"&"uuid=${{ fromJson(inputs.iconlink).uuid }} -OutFile ./res/icon.png 
+          Invoke-WebRequest -Uri ${{ fromJson(inputs.iconlink).url }}/get_png?filename=${{ fromJson(inputs.iconlink).file }}"&"uuid=${{ fromJson(inputs.iconlink).uuid }} -OutFile ./res/icon.png  
           mv ./res/32x32.png ./res/32x32.png.bak
           mv ./res/64x64.png ./res/64x64.png.bak
           mv ./res/128x128.png ./res/128x128.png.bak
@@ -426,25 +392,6 @@ jobs:
           sed -i -e 's|updateUrl.isNotEmpty|false|' ./flutter/lib/desktop/pages/desktop_home_page.dart
           sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
 
-      # - name: run as admin
-      #   continue-on-error: true
-      #   if: ${{ fromJson(inputs.extras).runasadmin == 'true' }}
-      #   shell: bash
-      #   run: |
-      #     sed -i '/<\/compatibility>/a \
-      #           <security> \
-      #             <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/> \
-      #           </security>' ./flutter/windows/runner/runner.exe.manifest
-
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "25% complete"}'
-
       - name: replace flutter icons
         if: ${{ inputs.iconlink != 'false' }}
         continue-on-error: true
@@ -455,27 +402,18 @@ jobs:
           flutter pub run flutter_launcher_icons
           cd ..
 
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "50% complete, this step takes about 5 minutes, be patient."}'
-
       - name: Build rustdesk
         run: |
           # Windows: build RustDesk
           python3 .\build.py --portable --hwcodec --flutter --vram --skip-portable-pack
           mv ./flutter/build/windows/x64/runner/Release ./rustdesk
- 
+          
           # Download usbmmidd_v2.zip and extract it to ./rustdesk
           Invoke-WebRequest -Uri https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip -OutFile usbmmidd_v2.zip
           Expand-Archive usbmmidd_v2.zip -DestinationPath . -Force
           Remove-Item -Path usbmmidd_v2\Win32 -Recurse
           Remove-Item -Path "usbmmidd_v2\deviceinstaller64.exe", "usbmmidd_v2\deviceinstaller.exe", "usbmmidd_v2\usbmmidd.bat"
-          mv -Force .\usbmmidd_v2 ./rustdesk   
+          mv -Force .\usbmmidd_v2 ./rustdesk    
 
           # Download printer driver files and extract them to ./rustdesk
           # try {
@@ -485,23 +423,23 @@ jobs:
 
           #   # Check and move the files
           #   $checksum_driver = (Select-String -Path .\sha256sums -Pattern '^([a-fA-F0-9]{64}) \*rustdesk_printer_driver_v4-1.4\.zip$').Matches.Groups[1].Value
-          #   $downloadsum_driver = Get-FileHash -Path rustdesk_printer_driver_v4-1.4.zip -Algorithm SHA256
+          #   $downloadsum_driver = (Get-FileHash -Path rustdesk_printer_driver_v4-1.4.zip -Algorithm SHA256).Hash
           #   $checksum_adapter = (Select-String -Path .\sha256sums -Pattern '^([a-fA-F0-9]{64}) \*printer_driver_adapter\.zip$').Matches.Groups[1].Value
-          #   $downloadsum_adapter = Get-FileHash -Path printer_driver_adapter.zip -Algorithm SHA256
-          #   if ($checksum_driver -eq $downloadsum_driver.Hash -and $checksum_adapter -eq $downloadsum_adapter.Hash) {
-          #       Write-Output "rustdesk_printer_driver_v4-1.4, checksums match, extract the file."
-          #       Expand-Archive rustdesk_printer_driver_v4-1.4.zip -DestinationPath .
-          #       mkdir ./rustdesk/drivers
-          #       mv -Force .\rustdesk_printer_driver_v4-1.4 ./rustdesk/drivers/RustDeskPrinterDriver
-          #       Expand-Archive printer_driver_adapter.zip -DestinationPath .
-          #       mv -Force .\printer_driver_adapter.dll ./rustdesk
-          #   } elseif ($checksum_driver -ne $downloadsum_driver.Hash) {
-          #       Write-Output "rustdesk_printer_driver_v4-1.4, checksums do not match, ignore the file."
+          #   $downloadsum_adapter = (Get-FileHash -Path printer_driver_adapter.zip -Algorithm SHA256).Hash
+          #   if ($checksum_driver -eq $downloadsum_driver -and $checksum_adapter -eq $downloadsum_adapter) {
+          #     Write-Output "rustdesk_printer_driver_v4-1.4, checksums match, extract the file."
+          #     Expand-Archive rustdesk_printer_driver_v4-1.4.zip -DestinationPath .
+          #     mkdir ./rustdesk/drivers
+          #     mv -Force .\rustdesk_printer_driver_v4-1.4 ./rustdesk/drivers/RustDeskPrinterDriver
+          #     Expand-Archive printer_driver_adapter.zip -DestinationPath .
+          #     mv -Force .\printer_driver_adapter.dll ./rustdesk
+          #   } elseif ($checksum_driver -ne $downloadsum_driver) {
+          #     Write-Output "rustdesk_printer_driver_v4-1.4, checksums do not match, ignore the file."
           #   } else {
-          #       Write-Output "printer_driver_adapter.dll, checksums do not match, ignore the file."
+          #     Write-Output "printer_driver_adapter.dll, checksums do not match, ignore the file."
           #   }
           # } catch {
-          #     Write-Host "Ingore the printer driver error."
+          #   Write-Host "Ingore the printer driver error."
           # }
 
       - name: icon stuff
@@ -540,15 +478,6 @@ jobs:
           name: topmostwindow-artifacts
           path: "./rustdesk"
 
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "70% complete, this step takes about 5 minutes, be patient."}'
-      
       - name: zip dlls
         continue-on-error: true
         shell: pwsh
@@ -612,43 +541,6 @@ jobs:
           mv ./Package/bin/x64/Release/en-us/Package.msi ../../SignOutput/rustdesk.msi
           sha256sum ../../SignOutput/rustdesk.msi
 
-      - name: Report Status
-        
-        continue-on-error: true
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "85% complete"}'
-
-      - name: zip exe and msi
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Compress-Archive -Path ./SignOutput/*.exe, ./SignOutput/*.msi -DestinationPath ./SignOutput/unsigned_files.zip -CompressionLevel Fastest
-
-      - name: sign exe and msi
-        continue-on-error: true
-        shell: bash
-        run: |
-          if [ ! -z "${{ secrets.SIGN_BASE_URL }}" ] && [ ! -z "${{ secrets.SIGN_API_KEY }}" ]; then
-            curl -X POST -F "file=@./SignOutput/unsigned_files.zip" \
-              -H "X-API-KEY: ${{ secrets.SIGN_API_KEY }}" \
-              -m 900 \
-              "${{ secrets.SIGN_BASE_URL }}/sign/" -o ./SignOutput/signed_files.zip
-          else
-            echo "Signing skipped - signing URL or API key not configured"
-            cp ./SignOutput/unsigned_files.zip ./SignOutput/signed_files.zip
-          fi
-
-      - name: unzip exe and msi
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Expand-Archive -Path ./SignOutput/signed_files.zip -DestinationPath ./SignOutput/ -Force
-          Remove-Item ./SignOutput/unsigned_files.zip
-          Remove-Item ./SignOutput/signed_files.zip
-
       - name: rename rustdesk.exe to filename.exe
         run: |
           mv ./SignOutput/rustdesk.exe "./SignOutput/${{ inputs.filename }}.exe" || echo "rustdesk"
@@ -658,29 +550,9 @@ jobs:
         run: |
           mv ./SignOutput/rustdesk.msi "./SignOutput/${{ inputs.filename }}.msi" || echo "rustdesk"
 
-     
-      - name: Report Status
-        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "Success"}'
-
-      - name: failed
-        if: failure()
-        
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "Generation failed, try again"}'
-
-      - name: failed
-        if: cancelled()
-        
-        with:
-          url: ${{ env.STATUS_URL }}
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: '{"uuid": "${{ inputs.uuid }}", "status": "Generation cancelled, try again"}'
+          name: rustdesk-client-windows
+          path: ./SignOutput
+          retention-days: 7
