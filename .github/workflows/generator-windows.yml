@@ -56,14 +56,14 @@ on:
 
 
 env:
-  SCITER_RUST_VERSION: "1.78" # Mantenemos Rust a 1.78 (versión moderna)
-  RUST_VERSION: "1.78" # Mantenemos Rust a 1.78 (versión moderna)
+  SCITER_RUST_VERSION: "1.78" # Versión actualizada
+  RUST_VERSION: "1.78" # Versión actualizada
   CARGO_NDK_VERSION: "3.1.2"
   SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
   SCITER_NASM_DEBVERSION: "2.15.05-1"
   LLVM_VERSION: "15.0.6"
-  FLUTTER_VERSION: "3.24.5" # Revertimos Flutter a 3.24.5 (versión que sí se instala)
-  ANDROID_FLUTTER_VERSION: "3.24.5" # Revertimos Flutter a 3.24.5
+  FLUTTER_VERSION: "3.24.5" # Versión compatible con el instalador
+  ANDROID_FLUTTER_VERSION: "3.24.5"  
   FLUTTER_ELINUX_VERSION: "3.16.9"
   TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -148,11 +148,25 @@ jobs:
           name: bridge-artifact
           path: ./
 
-      - name: Install ImageMagick on Windows
+      - name: Install ImageMagick and Create Icon Placeholders
         run: |
+          # 1. Instalar ImageMagick
           choco install -y imagemagick.app --no-progress
           Get-ChildItem -Path "${env:ProgramFiles}" | % { $_.FullName } | Select-String -Pattern "[\/\\]ImageMagick[^\/\\]*$" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding utf8
 
+          # 2. Asegurar que la carpeta res exista
+          mkdir ./res -ErrorAction SilentlyContinue
+          
+          # 3. Crear el PNG de 1x1 (Base64) si no existe
+          if (-not (Test-Path -Path ./res/icon.png)) { 
+            echo iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII= | Out-File -Encoding ASCII ./res/icon.png
+          }
+          
+          # 4. Generar el .ico a partir del .png y asegurar tray-icon.ico
+          magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
+          cp ./res/icon.ico ./res/tray-icon.ico
+        shell: pwsh
+        
       - name: fix flutter_gpu_texture_renderer (fixed in master rustdesk)
         shell: bash
         run: |
@@ -279,7 +293,6 @@ jobs:
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
           cd $(dirname $(dirname $(which flutter)))
-          # Actualizar a la versión de Flutter 3.24.5 para que aplique el parche
           [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]] && git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
 
       - name: Install Rust toolchain
@@ -319,44 +332,6 @@ jobs:
           fi
           head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
         shell: bash
-
-      - name: Ensure icon files exist (Placeholder)
-        run: |
-          # Crea los placeholders si no existen, garantizando que el Rust compiler no falle
-          if (-not (Test-Path -Path ./res/icon.png)) { 
-            echo "Creating placeholder ./res/icon.png"
-            # Crea el PNG de 1x1 base64
-            echo iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII= | Out-File -Encoding ASCII ./res/icon.png
-          }
-          if (-not (Test-Path -Path ./res/tray-icon.ico)) {
-            echo "Creating placeholder ./res/tray-icon.ico"
-            # Crea un archivo ICO placeholder
-            echo AAABAAEAICAAAAAAAACoCAAAFgAAACgAAAAIAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAIAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA | Out-File -Encoding ASCII ./res/tray-icon.ico
-          }
-        shell: pwsh
-
-      - name: icon stuff
-        if: ${{ inputs.iconlink != 'false' }}
-        continue-on-error: true
-        shell: bash
-        run: |
-          # Mantenemos esta sección por si acaso, pero con los placeholders, debería funcionar
-          mv ./res/icon.ico ./res/icon.ico.bak || true
-          mv ./res/icon.png ./res/icon.png.bak || true
-          mv ./res/tray-icon.ico ./res/tray-icon.ico.bak || true
-
-      - name: magick stuff
-        if: ${{ inputs.iconlink != 'false' }}
-        continue-on-error: true
-        run: |
-          # Esta sección ahora usa los placeholders como base para generar los iconos finales
-          magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
-          cp ./res/icon.ico ./res/tray-icon.ico
-          magick ./res/icon.png -resize 32x32 ./res/32x32.png
-          magick ./res/icon.png -resize 64x64 ./res/64x64.png
-          magick ./res/icon.png -resize 128x128 ./res/128x128.png
-          magick ./res/128x128.png -resize 200% ./res/128x128@2x.png
-
 
       - name: ui.rs icon
         if: ${{ inputs.iconlink != 'false' }}
