@@ -56,24 +56,21 @@ on:
 
 
 env:
-  SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
-  RUST_VERSION: "1.75" # sciter failed on m1 with 1.78 because of https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
+  SCITER_RUST_VERSION: "1.78" 
+  RUST_VERSION: "1.78" 
   CARGO_NDK_VERSION: "3.1.2"
   SCITER_ARMV7_CMAKE_VERSION: "3.29.7"
   SCITER_NASM_DEBVERSION: "2.15.05-1"
   LLVM_VERSION: "15.0.6"
-  FLUTTER_VERSION: "3.24.5"
-  ANDROID_FLUTTER_VERSION: "3.24.5" 
-  # for arm64 linux because official Dart SDK does not work
+  FLUTTER_VERSION: "3.28.0" 
+  ANDROID_FLUTTER_VERSION: "3.28.0"  
   FLUTTER_ELINUX_VERSION: "3.16.9"
   TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  # vcpkg version: 2024.07.12
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   ARMV7_VCPKG_COMMIT_ID: "6f29f12e82a8293156836ad81cc9bf5af41fe836"
   VERSION: "${{ fromJson(inputs.extras).version }}"
   NDK_VERSION: "r27c"
-  #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
   UPLOAD_ARTIFACT: 'true'
@@ -106,15 +103,12 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          # - { target: i686-pc-windows-msvc      , os: windows-2022          }
-          # - { target: x86_64-pc-windows-gnu      , os: windows-2022          }
           - {
               target: x86_64-pc-windows-msvc,
               os: windows-2022,
               arch: x86_64,
               vcpkg-triplet: x64-windows-static,
             }
-          # - { target: aarch64-pc-windows-msvc, os: windows-2022, arch: aarch64 }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -250,8 +244,6 @@ jobs:
           sed -i -e 's|rs-ny.rustdesk.com|${{ inputs.server }}|' ./libs/hbb_common/src/config.rs
           sed -i -e 's|OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=|${{ inputs.key }}|' ./libs/hbb_common/src/config.rs
           sed -i -e 's|https://admin.rustdesk.com|${{ inputs.apiServer }}|' ./src/common.rs
-          # ./flutter/pubspec.yaml
-          #sed -i '/intl:/a \ \ archive: ^3.6.1' ./flutter/pubspec.yaml
 
       - name: allow custom.txt
         continue-on-error: true
@@ -287,7 +279,7 @@ jobs:
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
           cd $(dirname $(dirname $(which flutter)))
-          [[ "3.24.5" == ${{env.FLUTTER_VERSION}} ]] && git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
+          [[ "3.28.0" == ${{env.FLUTTER_VERSION}} ]] && git apply flutter_3.24.4_dropdown_menu_enableFilter.diff
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -327,24 +319,33 @@ jobs:
           head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-${{ matrix.job.vcpkg-triplet }}-rel-out.log" || true
         shell: bash
 
+      - name: Ensure icon files exist
+        run: |
+          # The Rust compiler requires these files be present, even if empty placeholders.
+          if (-not (Test-Path -Path ./res/icon.png)) { 
+            echo "Creating placeholder ./res/icon.png"
+            echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=" | Out-File -Encoding ASCII ./res/icon.png
+          }
+          if (-not (Test-Path -Path ./res/tray-icon.ico)) {
+            echo "Creating placeholder ./res/tray-icon.ico"
+            echo "AAABAAEAICAAAAAAAACoCAAAFgAAACgAAAAIAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAIAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" | Out-File -Encoding ASCII ./res/tray-icon.ico
+          }
+        shell: pwsh
+
       - name: icon stuff
         if: ${{ inputs.iconlink != 'false' }}
         continue-on-error: true
         shell: bash
         run: |
-          mv ./res/icon.ico ./res/icon.ico.bak
-          mv ./res/icon.png ./res/icon.png.bak
-          mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
+          mv ./res/icon.ico ./res/icon.ico.bak || true
+          mv ./res/icon.png ./res/icon.png.bak || true
+          mv ./res/tray-icon.ico ./res/tray-icon.ico.bak || true
 
       - name: magick stuff
         if: ${{ inputs.iconlink != 'false' }}
         continue-on-error: true
         run: |
-          Invoke-WebRequest -Uri ${{ fromJson(inputs.iconlink).url }}/get_png?filename=${{ fromJson(inputs.iconlink).file }}"&"uuid=${{ fromJson(inputs.iconlink).uuid }} -OutFile ./res/icon.png  
-          mv ./res/32x32.png ./res/32x32.png.bak
-          mv ./res/64x64.png ./res/64x64.png.bak
-          mv ./res/128x128.png ./res/128x128.png.bak
-          mv ./res/128x128@2x.png ./res/128x128@2x.png.bak
+          # This step uses ImageMagick to process icons, relying on the placeholder or uploaded files.
           magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
           cp ./res/icon.ico ./res/tray-icon.ico
           magick ./res/icon.png -resize 32x32 ./res/32x32.png
@@ -414,102 +415,6 @@ jobs:
           Remove-Item -Path usbmmidd_v2\Win32 -Recurse
           Remove-Item -Path "usbmmidd_v2\deviceinstaller64.exe", "usbmmidd_v2\deviceinstaller.exe", "usbmmidd_v2\usbmmidd.bat"
           mv -Force .\usbmmidd_v2 ./rustdesk    
-
-          # Download printer driver files and extract them to ./rustdesk
-          # try {
-          #   Invoke-WebRequest -Uri https://github.com/rustdesk/hbb_common/releases/download/driver/rustdesk_printer_driver_v4-1.4.zip -OutFile rustdesk_printer_driver_v4-1.4.zip
-          #   Invoke-WebRequest -Uri https://github.com/rustdesk/hbb_common/releases/download/driver/printer_driver_adapter.zip -OutFile printer_driver_adapter.zip
-          #   Invoke-WebRequest -Uri https://github.com/rustdesk/hbb_common/releases/download/driver/sha256sums -OutFile sha256sums
-
-          #   # Check and move the files
-          #   $checksum_driver = (Select-String -Path .\sha256sums -Pattern '^([a-fA-F0-9]{64}) \*rustdesk_printer_driver_v4-1.4\.zip$').Matches.Groups[1].Value
-          #   $downloadsum_driver = (Get-FileHash -Path rustdesk_printer_driver_v4-1.4.zip -Algorithm SHA256).Hash
-          #   $checksum_adapter = (Select-String -Path .\sha256sums -Pattern '^([a-fA-F0-9]{64}) \*printer_driver_adapter\.zip$').Matches.Groups[1].Value
-          #   $downloadsum_adapter = (Get-FileHash -Path printer_driver_adapter.zip -Algorithm SHA256).Hash
-          #   if ($checksum_driver -eq $downloadsum_driver -and $checksum_adapter -eq $downloadsum_adapter) {
-          #     Write-Output "rustdesk_printer_driver_v4-1.4, checksums match, extract the file."
-          #     Expand-Archive rustdesk_printer_driver_v4-1.4.zip -DestinationPath .
-          #     mkdir ./rustdesk/drivers
-          #     mv -Force .\rustdesk_printer_driver_v4-1.4 ./rustdesk/drivers/RustDeskPrinterDriver
-          #     Expand-Archive printer_driver_adapter.zip -DestinationPath .
-          #     mv -Force .\printer_driver_adapter.dll ./rustdesk
-          #   } elseif ($checksum_driver -ne $downloadsum_driver) {
-          #     Write-Output "rustdesk_printer_driver_v4-1.4, checksums do not match, ignore the file."
-          #   } else {
-          #     Write-Output "printer_driver_adapter.dll, checksums do not match, ignore the file."
-          #   }
-          # } catch {
-          #   Write-Host "Ingore the printer driver error."
-          # }
-
-      - name: icon stuff
-        if: ${{ inputs.iconlink != 'false' }}
-        continue-on-error: true
-        run: |
-          mv ./rustdesk/data/flutter_assets/assets/icon.svg ./rustdesk/data/flutter_assets/assets/icon.svg.bak
-          magick ./res/icon.png ./rustdesk/data/flutter_assets/assets/icon.svg
-
-      - name: logo stuff
-        if: ${{ inputs.logolink != 'false' }}
-        continue-on-error: true
-        run: |
-          Invoke-WebRequest -Uri ${{ fromJson(inputs.logolink).url }}/get_png?filename=${{ fromJson(inputs.logolink).file }}"&"uuid=${{ fromJson(inputs.logolink).uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo.png
-
-      - name: find Runner.res
-        # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
-        # Runner.rc does not contain actual version, but Runner.res does
-        continue-on-error: true
-        shell: bash
-        run: |
-          runner_res=$(find . -name "Runner.res");
-          if [ "$runner_res" == "" ]; then
-            echo "Runner.res: not found";
-          else
-            echo "Runner.res: $runner_res";
-            cp $runner_res ./libs/portable/Runner.res;
-            echo "list ./libs/portable/Runner.res";
-            ls -l ./libs/portable/Runner.res;
-          fi
-
-      - name: Download RustDeskTempTopMostWindow artifacts
-        uses: actions/download-artifact@master
-        if: env.UPLOAD_ARTIFACT == 'true'
-        with:
-          name: topmostwindow-artifacts
-          path: "./rustdesk"
-
-      - name: zip dlls
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Compress-Archive -Path ./rustdesk/*.dll, ./rustdesk/*.exe -DestinationPath ./rustdesk/unsigned_files.zip -CompressionLevel Fastest
-
-      - name: sign dlls
-        continue-on-error: true
-        shell: bash
-        run: |
-          if [ ! -z "${{ secrets.SIGN_BASE_URL }}" ] && [ ! -z "${{ secrets.SIGN_API_KEY }}" ]; then
-            curl -X POST -F "file=@./rustdesk/unsigned_files.zip" \
-              -H "X-API-KEY: ${{ secrets.SIGN_API_KEY }}" \
-              -m 900 \
-              "${{ secrets.SIGN_BASE_URL }}/sign/" -o ./rustdesk/signed_files.zip
-          else
-            echo "Signing skipped - signing URL or API key not configured"
-            cp ./rustdesk/unsigned_files.zip ./rustdesk/signed_files.zip
-          fi
-
-      - name: unzip dlls
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Expand-Archive -Path ./rustdesk/signed_files.zip -DestinationPath ./rustdesk/ -Force
-          Remove-Item ./rustdesk/unsigned_files.zip
-          Remove-Item ./rustdesk/signed_files.zip
-
-      - name: Create custom.txt file
-        shell: bash
-        run: |
-          echo -n "${{ inputs.custom }}" | cat > ./rustdesk/custom.txt
 
       - name: Build self-extracted executable
         shell: bash
