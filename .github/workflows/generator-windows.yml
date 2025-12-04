@@ -134,7 +134,6 @@ jobs:
           echo "STATUS_URL=${{ inputs.apiServer }}/api/updategh" >> $env:GITHUB_ENV
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -277,7 +276,6 @@ jobs:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -315,7 +313,7 @@ jobs:
           components: "rustfmt"
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -328,7 +326,7 @@ jobs:
           prefix-key: ${{ matrix.job.os }}
         
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -439,7 +437,7 @@ jobs:
       #           </security>' ./flutter/windows/runner/runner.exe.manifest
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -458,7 +456,7 @@ jobs:
           cd ..
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -543,7 +541,7 @@ jobs:
           path: "./rustdesk"
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -615,7 +613,7 @@ jobs:
           sha256sum ../../SignOutput/rustdesk.msi
 
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         continue-on-error: true
         with:
           url: ${{ env.STATUS_URL }}
@@ -662,7 +660,7 @@ jobs:
 
      
       - name: Report Status
-        uses: fjogeleit/http-request-action@v1
+        
         with:
           url: ${{ env.STATUS_URL }}
           method: 'POST'
@@ -671,7 +669,7 @@ jobs:
 
       - name: failed
         if: failure()
-        uses: fjogeleit/http-request-action@v1
+        
         with:
           url: ${{ env.STATUS_URL }}
           method: 'POST'
@@ -680,7 +678,7 @@ jobs:
 
       - name: failed
         if: cancelled()
-        uses: fjogeleit/http-request-action@v1
+        
         with:
           url: ${{ env.STATUS_URL }}
           method: 'POST'
